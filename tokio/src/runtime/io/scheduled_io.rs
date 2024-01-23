@@ -454,6 +454,8 @@ impl Future for Readiness<'_> {
     type Output = ReadyEvent;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        tracing::debug!("Readiness poll started");
+
         use std::sync::atomic::Ordering::SeqCst;
 
         let (scheduled_io, state, waiter) = unsafe {
@@ -462,8 +464,12 @@ impl Future for Readiness<'_> {
         };
 
         loop {
+            tracing::debug!("Readiness poll looping");
+
             match *state {
                 State::Init => {
+                    tracing::debug!("Readiness poll State::Init");
+
                     // Optimistically check existing readiness
                     let curr = scheduled_io.readiness.load(SeqCst);
                     let ready = Ready::from_usize(READINESS.unpack(curr));
@@ -524,6 +530,8 @@ impl Future for Readiness<'_> {
                     *state = State::Waiting;
                 }
                 State::Waiting => {
+                    tracing::debug!("Readiness poll State::Waiting");
+
                     // Currently in the "Waiting" state, implying the caller has
                     // a waiter stored in the waiter list (guarded by
                     // `notify.waiters`). In order to access the waker fields,
@@ -543,6 +551,7 @@ impl Future for Readiness<'_> {
                             w.waker = Some(cx.waker().clone());
                         }
 
+                        tracing::debug!("Readiness poll returns Pending");
                         return Poll::Pending;
                     }
 
@@ -554,6 +563,8 @@ impl Future for Readiness<'_> {
                     drop(waiters);
                 }
                 State::Done => {
+                    tracing::debug!("Readiness poll State::Done");
+
                     // Safety: State::Done means it is no longer shared
                     let w = unsafe { &mut *waiter.get() };
 

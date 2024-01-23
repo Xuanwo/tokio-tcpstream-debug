@@ -117,6 +117,7 @@ impl TcpStream {
             let mut last_err = None;
 
             for addr in addrs {
+                   tracing::debug!("tokio connect to addr {:?}", addr);
                 match TcpStream::connect_addr(addr).await {
                     Ok(stream) => return Ok(stream),
                     Err(e) => last_err = Some(e),
